@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width">
+    <title>Sprite Sheet Tests</title>
+    
+    <script src="helper.js"></script>
+    <script src="basedImage.js"></script>
+    <script src="basedSpriteSheet.js"></script>
+    <script src="basedAnimation.js"></script>
+    <script src="imageManager.js"></script>
+    
+</head>
+    
+<body>
+    
+    
+    <img id="sheet" src="pics/cumAnim.png" style="background: rgba(0,0,0,0.7);" >
+    </img>
+    
+    <canvas id="testCanvas" width="800" height="600" style="background: cyan; display:block;" tabindex="1"></canvas>
+    <button onclick="clearCanvas();">Clear</button>
+    
+    <script>
+        
+        function clearCanvas() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+        
+        var mouse = {x: 0, y: 0};
+        var getMousePosition = function(e) {
+            var bdd = canvas.getBoundingClientRect();
+            mouse.x = e.clientX - bdd.left;
+            mouse.y = e.clientY - bdd.top;
+        };
+        
+        var im;
+        var frameCount = 6;
+        var currFrame = 0;
+        var canvas, ctx;
+        var pathPoints = [];
+        
+        
+        var madePath = [];
+        
+        var allMadePaths = [];
+        
+        window.onload = function () {
+            im = document.getElementById("sheet");
+            canvas = document.getElementById("testCanvas");
+            ctx = canvas.getContext("2d");
+            
+        
+            canvas.onmousemove = getMousePosition;
+            
+            ctx.drawImage(im, 0, 0);
+            
+            canvas.onmousedown = function(e) {
+                var frameW = im.width/frameCount;
+                //put the init point in not until now, to be sure the im is already loaded
+                if (pathPoints.length===0) {
+                    var beginX = (currFrame+0.5)*frameW;
+                    pathPoints.push({x: beginX, y: im.height});
+                    madePath.push("M "+beginX+" "+im.height);
+                }
+                var prevPos = pathPoints[pathPoints.length-1];
+                var pos = {x: e.pageX - canvas.offsetLeft, y: e.pageY - canvas.offsetTop};
+                pathPoints.push({x: pos.x, y: pos.y});
+                let mPT = "l "+(pos.x-prevPos.x)+" "+(pos.y-prevPos.y);
+                madePath.push( mPT );
+                console.log("madePath: "+madePath.join(" "));
+                ctx.stroke(new Path2D(madePath.join(" ")));
+            };
+            
+            canvas.onkeydown = function(e) {
+                //console.log(e.keyCode);
+                if (e.keyCode===70) toggleFlip();
+                if (e.keyCode===39) {
+                    allMadePaths.push(madePath.join(" "));
+                    currFrame += 1;
+                    madePath = [];
+                    pathPoints = [];
+                    console.log("Starting next path...\n\n");
+                    
+                };
+                e.preventDefault();
+            }
+            
+            canvas.focus();
+        };
+        
+        
+        
+        function printResult() {
+            console.log(JSON.stringify(allMadePaths.map(s=>{
+                let indOfL = s.indexOf("l");
+                return s.substring(indOfL);
+            } )));
+        }
+        
+    </script>
+  
+    
+    
+    
+</body>
+
+</html>

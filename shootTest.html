@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width">
+    <title>Shoot Tests</title>
+    
+    
+    <style>
+        h2 {
+            font-size: 16px;
+            font-weight: 900;
+            margin-top: 10px;
+            margin-bottom: 3px;
+            
+        }
+        label {
+            display: inline-block;
+        }
+        
+        #paramsCopyAndSet {
+            margin-top: 10px;
+            padding: 5px;
+            border: 2px solid #03f;
+        }
+        
+        #defaultParamsButton {
+            margin-top: 20px;
+        }
+        
+        canvas {
+            background: #111;
+        }
+    </style>
+    
+    
+    <script src="helper.js"></script>
+    <script src="shot.js"></script>
+    <script src="energyMeter.js"></script>
+    
+</head>
+    
+<body>
+    
+    
+    <canvas id="testCanvas" width="800" height="400" tabindex="1"></canvas>
+    
+    <h2>Parameters</h2>
+    <div id="paramControls">
+        
+        <ul>
+        
+        <li>
+        <label>Cannon power <input type=range min=0 max=20 value=7 step=0.1 oninput="cannon.power = parseFloat(this.value); cursorFocus(canvas);"> </label>
+        </li>
+        <li>
+        <label>Spread x <input type=range min=0 max=5 step=0.1 value=0.2 oninput="cannon.shootSpreadX = parseFloat(this.value); cursorFocus(canvas);"></label>
+        </li>
+        <li>
+        <label>Spread y <input type=range min=0 max=5 step=0.1 value=0.4 oninput="cannon.shootSpreadY = parseFloat(this.value); cursorFocus(canvas);"></label>
+        </li>
+        <li>
+        <label>Cannon load <input type=range min=0 max=100 step=1 value=10 oninput="cannon.load = parseInt(this.value); cursorFocus(canvas);"></label>
+        </li>
+        <li>
+        <label>Particle size <input type=range min=0.1 max=10 step=0.1 value=1 oninput="cannon.partSize = parseFloat(this.value); cursorFocus(canvas);"></label>
+        </li>
+        <li>
+        <label>Particle line width <input type=range min=0.1 max=10 step=0.1 value=1 oninput="cannon.partsLineWidth = parseFloat(this.value); cursorFocus(canvas);"></label>
+        </li>
+        <li>
+        <label>Max dist for line between particles <input type=range min=0 max=50 step=0.5 value=7 oninput="cannon.maxDistForPartsLine = parseFloat(this.value); cursorFocus(canvas);"></label>
+        </li>
+        <li>
+        <label>Particle separ r <input type=range min=0 max=100 step=0.5 value=1 oninput="cannon.partsSeparR = parseFloat(this.value); cursorFocus(canvas);"></label>
+        </li>
+        <li>
+        <label>Particle separ coeff <input type=range min=0 max=10 step=0.1 value=2 oninput="cannon.partsSeparCoeff = parseFloat(this.value); cursorFocus(canvas);"></label>
+        </li>
+        <li>
+        <label>Particle close r <input type=range min=0 max=800 step=0.5 value=100 oninput="cannon.partsCloseR = parseFloat(this.value); cursorFocus(canvas);"></label>
+        </li>
+        <li>
+        <label>Particle close coeff <input type=range min=0 max=10 step=0.1 value=2 oninput="cannon.partsCloseCoeff = parseFloat(this.value); cursorFocus(canvas);"></label>
+        </li>
+        <li>
+        <label>Min delay time factor <input type=range min=0 max=500 step=1 value=30 oninput="cannon.minDelayTimeFactor = parseFloat(this.value); cursorFocus(canvas);"></label>
+        </li>
+        <li>
+        <label>Max delay time factor <input type=range min=0 max=3000 step=10 value=1900 oninput="cannon.maxDelayTimeFactor = parseFloat(this.value); cursorFocus(canvas);"></label>
+        </li>
+        </ul>
+    
+    </div>
+    
+    <h2>Other Settings</h2>
+    <div id="otherSettings">
+    
+    <ul>
+    <li>
+    <label>Keep previous shots <input type="checkbox" oninput="keepPrevShots=this.checked;  cursorFocus(canvas);"></label>
+    </li>
+    </ul>
+    </div>
+    <h2>Print and set parameters from a printed string</h2>
+    <div id = "paramsCopyAndSet">
+        <button onclick = "printParams()">Print parameters</button>
+        <p id="paramsText"></p>
+        <label>Set parameters: <input id="setParamsInput"  placeholder="insert params text here">
+        <button onclick = "setParamsWithInput()">Set</button>
+        </label>
+        
+        <button id="defaultParamsButton" onclick="setParams(defaultParams); cursorFocus(canvas);">Restore default</button>
+        
+    </div>
+    
+    <script>
+        
+        var W = 800;
+        var H = 400;
+        var gravity = {x: 0, y: 10};
+        var keepPrevShots = false;
+        
+        var paramNames = ["power", "shootSpreadX", "shootSpreadY", "load", "partSize", "partsLineWidth", "maxDistForPartsLine", "partsSeparR", "partsSeparCoeff", "partsCloseR", "partsCloseCoeff", "minDelayTimeFactor", "maxDelayTimeFactor"];
+        
+        var defaultParams = [7.6, 0.2, 0.5, 72, 1.6, 3.4, 12.5, 40, 2, 100, 0.1, 300, 1900];
+        //7.6, 0.2, 0.5, 72, 1.6, 3.4, 12.5, 40, 2, 300, 1900
+        
+        /** Time in milliseconds that mouse wheel scrolls must be apart to not consider them as
+        *   towards accelerating the scrolling
+        */
+        var mouseWheelAccDelay = 400;
+        /** The maximum value mouse wheel scolls can be accelerated (a single tick multiplied with to
+         *  get a value for scrolling to use )
+         */
+        var mouseWheelMaxAcc = 30;
+        /** How fast the mouse wheel scrolling accelation is raised */
+        var mouseWheelAccFastness = 1.8;
+        /** Ticks until the mouse wheel accelaration is began */
+        var mouseWheelAccMinTicks = 3;
+        
+        function clearCanvas() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+        
+        var mouse = {x: 0, y: 0};
+        var getMousePosition = function(e) {
+            mouse.x = e.pageX - canvas.offsetLeft;
+            mouse.y = e.pageY - canvas.offsetTop;
+        };
+        
+        var canvas, ctx;
+        var shots = [];
+        
+        
+        var eraser = {
+            x: 100,
+            y: H-50,
+            r: 30,
+            draw: function(ctx) {
+                ctx.fillStyle = "rgba(120, 0, 50, 0.7)";
+                ctx.strokeStyle = "#777";
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.r, 0, 2*Math.PI);
+                ctx.fill();
+                ctx.stroke();
+            },
+            inside: function(x, y) {
+                return (x-this.x)**2 + (y-this.y)**2 < this.r**2;
+            }
+        };
+        
+        
+        var cannon = {
+            x: 200,
+            y: H-50,
+            r: 10, //handle radius
+            ang: -Math.PI/4,
+            draw: function(ctx) {
+                ctx.save();
+                
+                ctx.translate(this.x, this.y);
+                ctx.rotate(this.ang);
+                ctx.scale(this.r, this.r);
+                ctx.lineWidth = 2/this.r;
+                
+                ctx.fillStyle = "rgba(0, 150, 0, 0.9)";
+                ctx.fillRect(-1, -2, 7, 2);
+                ctx.fillRect(5, -2.5, 1, 3);
+                //ctx.fillRect(0,0, 3, 3);
+                
+                ctx.fillStyle = "rgba(0, 0, 150, 0.9)";
+                ctx.strokeStyle = "#777";
+                
+                
+                ctx.beginPath();
+                ctx.arc(0, 0, 1, 0, 2*Math.PI);
+                ctx.fill();
+                ctx.stroke();
+                
+                ctx.restore();
+                
+            },
+            inside: function(x, y) {
+                return (x-this.x)**2 + (y-this.y)**2 < this.r**2;
+            },
+            
+            getMouthPos: function() {
+                var c = Math.cos(this.ang);
+                var s = Math.sin(this.ang);
+                var l = 6*this.r;
+                var toUp = this.r;
+                return {x: this.x + l*c + toUp*s, y: this.y + l*s - toUp*c};
+            },
+            
+            shoot: function() {
+                var shot = new Shot(this.load);
+                shot.setBounds(0,0,W, H);
+                shot.partSize = this.partSize;
+                shot.partsLineWidth = this.partsLineWidth;
+                shot.maxDistForPartsLine = this.maxDistForPartsLine;
+                shot.minDelayGap = this.minDelayTimeFactor/this.load;
+                shot.maxDelayGap = this.maxDelayTimeFactor/this.load;
+                shot.separRadius = this.partsSeparR;
+                shot.separCoeff = this.partsSeparCoeff;
+                shot.closeRadius = this.closeSeparR;
+                shot.closeCoeff = this.partsCloseCoeff;
+                
+                shot.shoot(cannon.getMouthPos(),
+                            {x: this.power*Math.cos(this.ang), y: this.power*Math.sin(this.ang)},
+                            this.shootSpreadX, this.shootSpreadY);
+                if (keepPrevShots) {
+                    shots.push(shot);
+                } else {
+                    shots = [shot];
+                }
+            },
+            
+            power: 7,
+            shootSpreadX: 0.2,
+            shootSpreadY: 0.4,
+            load: 10,
+            partSize: 1,
+            partsLineWidth: 4,
+            maxDistForPartsLine: 7,
+            partsSeparR: 40,
+            partsSeparCoeff: 2,
+            partsCloseR: 100,
+            partsCloseCoeff: 0.1,
+            minDelayTimeFactor: 30,
+            maxDelayTimeFactor: 1900,
+            
+        };
+        
+        var heldObject = null;
+        
+        
+        var collectRadius = 10;
+        
+        window.onload = function () {
+            canvas = document.getElementById("testCanvas");
+            ctx = canvas.getContext("2d");
+            
+        
+            canvas.width = W;
+            canvas.height = H;
+            canvas.onmousemove = function(evt) {
+                getMousePosition(evt);
+                if (heldObject) {
+                    heldObject.x = mouse.x;
+                    heldObject.y = mouse.y;
+                }
+            };
+            canvas.onmousedown = function(evt) {
+                getMousePosition(evt);
+                
+                if (eraser.inside(mouse.x, mouse.y)) {
+                    heldObject = eraser;
+                } else if (cannon.inside(mouse.x, mouse.y)){
+                    heldObject = cannon;
+                }
+            };
+            
+            canvas.onmouseup = function(evt) {
+                heldObject = null;
+            };
+            
+            
+            var timeOfLastMouseWheel = Date.now();
+            var mouseWheelsInRow = 0;
+            canvas.onmousewheel = function(evt) {
+                evt.preventDefault();
+                var acc = 1; //factor to accelarate the wheel scrolling if scrolled continously
+                
+                var tempTime = Date.now();
+                if (tempTime-timeOfLastMouseWheel < mouseWheelAccDelay) {
+                    mouseWheelsInRow += 1;
+                } else {
+                    mouseWheelsInRow = 0;
+                }
+                
+                if (mouseWheelsInRow > mouseWheelAccMinTicks) {
+                    acc = 2**((mouseWheelsInRow-mouseWheelAccMinTicks) * mouseWheelAccFastness);
+                }
+                if (acc>mouseWheelMaxAcc) acc=mouseWheelMaxAcc;
+                
+                //console.log("Mouse wheels in row: "+mouseWheelsInRow);
+                
+                var wheelTick = evt.wheelDeltaY < 0 ? -1 : (evt.wheelDeltaY > 0 ? 1 : 0);
+                
+                if (heldObject === eraser) {
+                    eraser.r += wheelTick * Math.max(1, acc/20);
+                    if (eraser.r<3) eraser.r = 3; //don't let become too small to find the eraser
+                } else if (heldObject === cannon) {
+                    cannon.ang -= wheelTick*acc/100;
+                }
+                
+                timeOfLastMouseWheel = tempTime;
+            };
+            
+            
+            canvas.onkeydown = function(evt) {
+                if (evt.keyCode === 32) { //shoot with spacebar
+                    cannon.shoot();
+                    evt.preventDefault();
+                }
+            };
+            
+            canvas.focus();
+            
+            window.requestAnimationFrame(tick);
+            var lastT = Date.now();
+            
+        };
+        
+        function update(dT) {
+            for (let s of shots) {
+                s.update(dT/1000);
+            }
+            
+            if (heldObject === eraser) {
+                for (let s of shots) {
+                    var colls = s.collectParts(mouse.x, mouse.y, eraser.r);
+                    //if (colls.length>0) console.log("collected "+colls.length+" parts");
+                }
+            }
+            
+            var hadSDeletes = false;
+            for (let i=0; i<shots.length; i++) {
+                let s = shots[i];
+                if (s.parts.length === 0) {
+                    delete shots[i];
+                    hadSDeletes = true;
+                }
+            }
+            if (hadSDeletes) {
+                shots = shots.filter(x=>x);
+            }
+            
+            
+            meter.update(dT);
+            
+        }
+        
+        function draw() {
+            clearCanvas();
+            for (let s of shots) {
+                s.draw(ctx);
+            }
+            
+            cannon.draw(ctx);
+            eraser.draw(ctx);
+            
+            meter.draw(ctx);
+            
+        }
+        
+        var lastT = Date.now();
+        
+        function tick() {
+            let tempT = Date.now();
+            let dT = tempT - lastT;
+            lastT = tempT;
+            
+            update(dT);
+            draw();
+
+            window.requestAnimationFrame(tick);
+        }
+        
+        
+        
+        
+        
+        
+        function cursorFocus(elem) {
+            var x = window.scrollX, y = window.scrollY;
+            elem.focus();
+            window.scrollTo(x, y);
+        }
+
+        
+        var allInputs = document.getElementById("paramControls").getElementsByTagName("input");
+        var inputInd = 0;
+        for (let input of allInputs) {
+            input.id = paramNames[inputInd++]+"Input";
+        }
+        
+        function printParams() {
+            var pText = document.getElementById("paramsText");
+            pText.innerHTML = paramNames.map(pName=>cannon[pName]).join(";");
+        }
+        
+        
+        function setParamsWithInput() {
+            var pInput = document.getElementById("setParamsInput");
+            setParams(pInput.value.split(";").map(x=>parseFloat(x)));
+        }
+        
+        function setParams(params) {
+            for (let i=0; i<paramNames.length; i++) {
+                if (typeof params[i] === "number") {
+                    cannon[paramNames[i]] = params[i];
+                }
+                
+                try {
+                    document.getElementById(paramNames[i]+"Input").value = params[i];
+                } catch(err) {
+                    console.error("Couldn't set "+paramNames[i]);
+                }
+            }
+        }
+        
+        
+        setParams(defaultParams); //put a little betters params to begin with
+        
+        
+        
+        
+        var meter = new EnergyMeter();
+        meter.setPosition(W-50, 20);
+        meter.setSize(40, 120);
+        
+        
+        
+    </script>
+  
+    
+    
+    
+</body>
+
+</html>

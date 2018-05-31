@@ -1,0 +1,156 @@
+#gameDiv {
+    
+}
+
+#canvasWrap {
+    position: relative;
+    width: 800px;
+    height: 600px;
+    display: block;
+    margin: 20px auto;
+    
+}
+
+#gameCanvas {
+    background: linear-gradient(rgba(250, 0, 0, 0.5), rgba(0, 0, 250,0.5));
+    
+}
+
+#inventory {
+    position: absolute;
+    left: 1%;
+    top: 1%;
+    width: 18%;
+}
+
+.inventoryItem {
+    position: relative;
+    display: block;
+    background: rgba(50,50,50, 0.8);
+    border: 2px solid black;
+    margin-bottom: 5px;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    -khtml-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+}
+
+.inventoryItem img {
+    display: inline;
+    width: 60%;
+    height: auto;
+    margin-right: 5%;
+    vertical-align: middle;
+     
+}
+
+
+.inventoryItem p {
+    display: inline;
+    vertical-align: middle;
+    font: .7em Verdana;
+    color: white;
+}
+
+.inventoryItem[bought="true"]:hover {
+    background: rgba(100,100,100, 0.8);
+    cursor: pointer;
+    transform: scale(1.05, 1.05);
+}
+
+/* can't be easily set programmatically
+.inventoryItem[bought="false"]:before {
+    margin: 0;
+    padding-top: 5px;
+    position: absolute;
+    content: 'OSTA';
+    text-align: center;
+    vertical-align: middle;
+    line-height: 2em;
+    background: rgba(0,0,0, 0.95);
+    width: 100%;
+    height: 13%;
+    color: white;
+    pointer-events: all;
+}
+*/
+
+.inventoryItem[bought="false"] .itemHider {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    text-align: center;
+    font-size: 1.8em;
+    color: white;
+    background: rgba(0,0,0,0.95);
+}
+
+.inventoryItem[bought="false"][canAfford="true"] .itemHider:hover {
+   background: rgba(20, 20, 20, 0.5);
+    cursor: pointer;
+}
+
+.inventoryItem[bought="false"][canAfford="false"] .itemHider:hover {
+   background: rgba(100,0,0, 0.95);
+    cursor: not-allowed;
+}
+
+
+
+.cumAmountItem {
+    display: block;
+    background: rgba(10, 10, 10, 0.85);
+    border: 2px solid white;
+    border-radius: 0% 15% 15% 0%;
+    margin-bottom: 15px;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    -khtml-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+}
+
+.cumAmountItem img {
+    display: inline;
+    width: 60%;
+    height: auto;
+    max-width: 50px;
+    max-height: 40px;
+    margin-right: 5%;
+    vertical-align: middle;
+     
+}
+
+.cumAmountItem p {
+    display: inline;
+    vertical-align: middle;
+    font: 1.2em Verdana;
+    color: white;
+}
+
+
+#muteButton {
+    position: absolute;
+    top: 1%;
+    right: 10%;
+    width: 50px;
+    height: 50px;
+    border: none;
+    outline: none;
+}
+#muteButton:hover {
+    transform: scale(1.05, 1.05);
+}
+    
+#muteButton[sound="on"] {
+    background: transparent url(pics/soundOn.png)  no-repeat top;
+}
+
+#muteButton[sound="off"] {
+    background: transparent url(pics/soundOff.png) no-repeat top;
+}

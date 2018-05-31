@@ -1,0 +1,98 @@
+
+#splashScreen {
+    background: #aaa;
+    width: 800px;
+    height: 600px;
+    margin: auto;
+    text-align: center;
+}
+
+
+
+#splashScreen img {
+    margin-top: 5%;
+    height: 40%;
+    width: auto;
+    background: #555;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    -khtml-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+}
+
+#splashScreen #splashName {
+    font: 50px Verdana;
+    margin-top: 10px;
+    margin-bottom: 30px;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    -khtml-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+}
+
+#splashLoadBar {
+    padding-top: 5px;
+    position: relative;
+    font: 28px Verdana;
+    display: block;
+    margin: auto;
+    margin-top: 1%;
+    width: 60%;
+    height: 6.5%;
+    min-height: 30px;
+    max-height: 70px;
+    background: #aaa;
+    
+}
+
+#splashLoadBarBorder {
+    position: absolute;
+    display: block;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0);
+    border: 5px solid #222;
+    border-radius: 10px;
+    z-index: 7;
+}
+
+#splashLoadBarInner {
+    position: absolute;
+    display: block;
+    top: 0;
+    left: 0;
+    width: 0%;
+    min-width: 10px;
+    height: 100%;
+    background: rgba(255, 0, 0, 0.7);
+    border: 5px solid rgba(0, 0, 0, 0);
+    border-radius: 10px;
+    z-index: 6;
+}
+
+#playButtonArea {
+    margin: 0;
+    display: none;
+}
+
+#playButtonArea button {
+    font: 50px Verdana;
+    background: lime;
+    border-radius: 10px;
+}
+
+#playButtonArea button:hover {
+    transform: scale(1.05, 1.05);
+    opacity: 0.8;
+}
+
+#playButtonArea button:focus {
+    outline: none;
+}
+

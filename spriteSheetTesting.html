@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width">
+    <title>Sprite Sheet Tests</title>
+    
+    <script src="helper.js"></script>
+    <script src="basedImage.js"></script>
+    <script src="basedSpriteSheet.js"></script>
+    <script src="basedAnimation.js"></script>
+    <script src="imageManager.js"></script>
+    
+</head>
+    
+<body>
+    
+    
+    <img id="sheet" src="pics/anims/fallBackAnim.png" style="display: none; background: black;" >
+    </img>
+    
+    <canvas id="testCanvas" width="800" height="600" style="background: cyan; display:block;" tabindex="1"></canvas>
+    
+    <br>
+    
+    <button onclick="printGoalDatas();">Print goal datas</button>
+    
+    <p id="goalDataArea"></p>
+    
+    <script>
+        
+        
+        /*
+        var frameToDraw = 0;
+        var flipFrame = false;
+        function toggleFlip() {
+            flipFrame = !flipFrame;
+        }
+        
+        function swapFrames(frames) {
+            frameToDraw += frames;
+            frameToDraw %= frameCount;
+            if (frameToDraw<0) frameToDraw += frameCount;
+        }
+        */
+        
+        
+        var im;
+        var frameCount = 6;
+        var canvas, ctx;
+        
+        var mouse = {x: 0, y: 0};
+        var getMousePosition = function(e) {
+            mouse.x = e.pageX - canvas.offsetLeft;
+            mouse.y = e.pageY - canvas.offsetTop;
+        };
+        
+        /*
+        var offs = [{"pos":{"x":-24.75,"y":-99},"angle":0.2,"spread":0.4},{"pos":{"x":-13.25,"y":-111},"angle":0.2,"spread":0.4},{"pos":{"x":-20.75,"y":-109},"angle":0.2,"spread":0.4},{"pos":{"x":-1.25,"y":-113},"angle":0.2,"spread":0.4},{"pos":{"x":-19.75,"y":-111},"angle":0.2,"spread":0.4},{"pos":{"x":-18.25,"y":-107},"angle":0.2,"spread":0.4},{"pos":{"x":-23.75,"y":-107},"angle":0.2,"spread":0.4},{"pos":{"x":-8.25,"y":-103},"angle":0.2,"spread":0.4}];
+        
+        var madeOffs = [];
+        */
+        
+        
+        var GoalSetter = function(gX, gY, gR, dPX, dPY, dPR) {
+            this.goal = {x: gX, y: gY, r: gR};
+            this.dirPoint = {x: dPX, y: dPY, r: dPR};
+            this.spread = this.calculateSpread();
+        };
+        
+        
+        GoalSetter.prototype.setBoundsForGoal = function(left, top, right, bottom) {
+            this.goal.bounds = {left: left, top: top, right: right, bottom: bottom};
+        };
+        
+        GoalSetter.prototype.setBasePoint = function(x, y) {
+            this.basePoint = {x: x, y: y};
+        };
+        
+        GoalSetter.prototype.getPointOn = function(x, y) {
+            if ((x-this.goal.x)**2 + (y-this.goal.y)**2 <= this.goal.r**2) return this.goal;
+            if ((x-this.dirPoint.x)**2 + (y-this.dirPoint.y)**2 <= this.dirPoint.r**2) return this.dirPoint;
+            return null;
+        };
+        
+        GoalSetter.prototype.getGoalData = function(decims) {
+            //{"pos":{"x":-28,"y":-165},"angle":-0.2,"spread":0.4}
+            
+            
+            var roundVal = (typeof decims === "number") ? val=>Math.round(10**decims*val)/(10**decims) : val=>val;
+            
+            this.update();
+            
+            var ang = roundVal(this.calculateAngle());
+            var spr = roundVal(this.spread);
+            
+            var retX = this.goal.x;
+            var retY = this.goal.y;
+            if (typeof this.basePoint === "object") {
+                retX = this.goal.x - this.basePoint.x ;
+                retY = this.goal.y - this.basePoint.y;
+            }
+            
+            return {pos: {x: retX, y: retY}, angle: ang, spread: spr};
+        };
+        
+        GoalSetter.prototype.calculateAngle = function() {
+            var dirDX = this.dirPoint.x - this.goal.x;
+            var dirDY = this.dirPoint.y - this.goal.y;
+            return Math.PI/2 - Math.atan2(dirDX, dirDY);
+        };
+        
+        GoalSetter.prototype.calculateSpread = function() {
+            var dirDX = (this.dirPoint.x - this.goal.x)/(frameW/4);
+            var dirDY = (this.dirPoint.y - this.goal.y)/(frameW/4);
+            return  Math.min(Math.PI, dirDX**2+dirDY**2); //sqruare distance to make bigger earlier
+        };
+        
+        
+        GoalSetter.prototype.update = function() {
+            this.spread = this.calculateSpread();
+        };
+        
+        
+        GoalSetter.prototype.draw = function(ctx) {
+            ctx.fillStyle = "rgba(200, 0, 0, 0.7)";
+            ctx.beginPath();
+            ctx.arc(this.goal.x, this.goal.y, this.goal.r, 0, 2*Math.PI);
+            ctx.fill();
+            
+            ctx.fillStyle = "rgba(0, 0, 200, 0.7)";
+            ctx.beginPath();
+            ctx.arc(this.dirPoint.x, this.dirPoint.y, this.dirPoint.r, 0, 2*Math.PI);
+            ctx.fill();
+            
+            ctx.strokeStyle = "rgba(100, 0, 200, 0.8)";
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(this.goal.x, this.goal.y);
+            ctx.lineTo(this.dirPoint.x, this.dirPoint.y);
+            ctx.stroke();
+            
+            ctx.strokeStyle = "rgba(200, 0, 0, 0.8)";
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            let oppAng = Math.PI+this.calculateAngle();
+            let a1 = oppAng-this.spread;
+            let a2 = oppAng+this.spread;
+            ctx.arc(this.goal.x, this.goal.y, this.goal.r*1.5, a1, a2, false);
+            ctx.stroke();
+        };
+        
+        var goalR = 10;
+        var dirPointR = 10;
+        var goalSetters = [];
+        var draggedPoint = null;
+        var draggedSetter = null;
+        
+        var frameW = 0, frameH = 0;
+        window.onload = function () {
+            im = document.getElementById("sheet");
+            frameW = im.width/frameCount;
+            frameH = im.height;
+            canvas = document.getElementById("testCanvas");
+            canvas.width = im.width;
+            canvas.height = im.height;
+            ctx = canvas.getContext("2d");
+            
+            
+            for (let i=0; i<frameCount; i++) {
+                let gs = new GoalSetter((i+0.5)*frameW, 0.5*frameH, goalR,
+                               (i+0.3)*frameW, 0.5*frameH, dirPointR,
+                                0.4);
+                gs.setBoundsForGoal(i*frameW, 0, (i+1)*frameW, frameH);
+                gs.setBasePoint((i+0.5)*frameW, frameH);
+                goalSetters.push(gs);
+            }
+            
+            canvas.onmousemove = function (evt) {
+                getMousePosition(evt);
+                if (draggedPoint) {
+                    draggedPoint.x = mouse.x;
+                    draggedPoint.y = mouse.y;
+                    
+                    if (typeof draggedPoint.bounds === "object") {
+                        let bdd = draggedPoint.bounds;
+                        draggedPoint.x = Math.max(draggedPoint.x, bdd.left);
+                        draggedPoint.x = Math.min(draggedPoint.x, bdd.right);
+                        draggedPoint.y = Math.max(draggedPoint.y, bdd.top);
+                        draggedPoint.y = Math.min(draggedPoint.y, bdd.bottom);
+                    }
+                }
+                
+                if (draggedSetter) {
+                    draggedSetter.update();
+                }
+                draw();
+            };
+            
+            canvas.onmousedown = function(evt) {
+                getMousePosition(evt);
+                //console.log("mouse down on "+mouse.x+", "+mouse.y);
+                let toDrag = null;
+                for (let gs of goalSetters) {
+                    toDrag = gs.getPointOn(mouse.x, mouse.y);
+                    if (toDrag) {
+                        //console.log("got dragged point: ", toDrag);
+                        draggedSetter = gs;
+                        break;
+                    }
+                }
+                draggedPoint = toDrag;
+                draw();
+            };
+            
+            canvas.onmouseup = function (evt) {
+                draggedPoint = null;
+                draggedSetter = null;
+                draw();
+            };
+            
+            draw();
+            
+            /*
+            im.onmousedown = function(e) {
+                frameW = im.width/frameCount;
+                frameH = im.height;
+                madeOffs.push({pos: {x: e.pageX - im.offsetLeft - (madeOffs.length)*frameW - frameW/2,
+                                     y: e.pageY - im.offsetTop - frameH},
+                              angle: 0.2,
+                              spread: 0.4
+                              });
+                console.log("madeOffs: "+JSON.stringify(madeOffs));
+            };
+            */
+            
+            /*
+            canvas.onkeydown = function(e) {
+                console.log(e.keyCode);
+                if (e.keyCode===70) toggleFlip();
+                if (e.keyCode===39) swapFrames(1);
+                if (e.keyCode===37) swapFrames(-1);
+                e.preventDefault();
+            }
+            */
+            
+        };
+        
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(im, 0, 0);
+            
+            goalSetters.forEach(gs=>gs.draw(ctx));
+            
+        }
+        
+        
+        function printGoalDatas() {
+            document.getElementById("goalDataArea").textContent = JSON.stringify(goalSetters.map(gs=>gs.getGoalData(4)));
+        }
+        
+    </script>
+  
+    
+    
+    
+</body>
+
+</html>
