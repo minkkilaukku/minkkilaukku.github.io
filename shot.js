@@ -169,7 +169,6 @@ Shot.prototype.update = function(dT) {
         }
     }
     
-    //TODO repel, attract?
 };
 
 

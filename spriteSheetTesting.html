@@ -10,13 +10,22 @@
     <script src="basedSpriteSheet.js"></script>
     <script src="basedAnimation.js"></script>
     <script src="imageManager.js"></script>
+    <script src="soundManager.js"></script>
+    <script src="bullet.js"></script>
+    <script src="moneyBullet.js"></script>
+    <script src="slipBullet.js"></script>
+    <script src="goal.js"></script>
+    <script src="shot.js"></script>
+    <script src="target.js"></script>
+    
     
 </head>
     
 <body>
     
     
-    <img id="sheet" src="pics/anims/fallBackAnim.png" style="display: none; background: black;" >
+    <img id="sheet" src="pics/anims/gettingHitFallenFrontAnim.png" frames="4"
+         style="display: none; background: black;" >
     </img>
     
     <canvas id="testCanvas" width="800" height="600" style="background: cyan; display:block;" tabindex="1"></canvas>
@@ -27,26 +36,23 @@
     
     <p id="goalDataArea"></p>
     
+    <input id="speedInput" type="range", min=0, max=10 value=6 step=0.1 oninput="setAnimation();">
+    <button onclick = setAnimation();>Set animation</button>
+    
+    <br>
+    <button onclick="setBullet();">Bullet</button>
+    <label>Flip <input type="checkbox" oninput="flipBullet = this.checked;"></label>
+    <p id="animationInfo"></p>
+    
+    <label>Running <input type="checkbox" oninput="testRunning = this.checked;"></label>
+    
     <script>
         
         
-        /*
-        var frameToDraw = 0;
-        var flipFrame = false;
-        function toggleFlip() {
-            flipFrame = !flipFrame;
-        }
-        
-        function swapFrames(frames) {
-            frameToDraw += frames;
-            frameToDraw %= frameCount;
-            if (frameToDraw<0) frameToDraw += frameCount;
-        }
-        */
-        
-        
         var im;
-        var frameCount = 6;
+        
+        var sheetFileName;
+        var frameCount;
         var canvas, ctx;
         
         var mouse = {x: 0, y: 0};
@@ -54,12 +60,6 @@
             mouse.x = e.pageX - canvas.offsetLeft;
             mouse.y = e.pageY - canvas.offsetTop;
         };
-        
-        /*
-        var offs = [{"pos":{"x":-24.75,"y":-99},"angle":0.2,"spread":0.4},{"pos":{"x":-13.25,"y":-111},"angle":0.2,"spread":0.4},{"pos":{"x":-20.75,"y":-109},"angle":0.2,"spread":0.4},{"pos":{"x":-1.25,"y":-113},"angle":0.2,"spread":0.4},{"pos":{"x":-19.75,"y":-111},"angle":0.2,"spread":0.4},{"pos":{"x":-18.25,"y":-107},"angle":0.2,"spread":0.4},{"pos":{"x":-23.75,"y":-107},"angle":0.2,"spread":0.4},{"pos":{"x":-8.25,"y":-103},"angle":0.2,"spread":0.4}];
-        
-        var madeOffs = [];
-        */
         
         
         var GoalSetter = function(gX, gY, gR, dPX, dPY, dPR) {
@@ -78,8 +78,8 @@
         };
         
         GoalSetter.prototype.getPointOn = function(x, y) {
-            if ((x-this.goal.x)**2 + (y-this.goal.y)**2 <= this.goal.r**2) return this.goal;
             if ((x-this.dirPoint.x)**2 + (y-this.dirPoint.y)**2 <= this.dirPoint.r**2) return this.dirPoint;
+            if ((x-this.goal.x)**2 + (y-this.goal.y)**2 <= this.goal.r**2) return this.goal;
             return null;
         };
         
@@ -159,6 +159,8 @@
         var frameW = 0, frameH = 0;
         window.onload = function () {
             im = document.getElementById("sheet");
+            sheetFileName = im.src;
+            frameCount = parseInt(im.getAttribute("frames"));
             frameW = im.width/frameCount;
             frameH = im.height;
             canvas = document.getElementById("testCanvas");
@@ -169,7 +171,7 @@
             
             for (let i=0; i<frameCount; i++) {
                 let gs = new GoalSetter((i+0.5)*frameW, 0.5*frameH, goalR,
-                               (i+0.3)*frameW, 0.5*frameH, dirPointR,
+                               (i+0.7)*frameW, 0.5*frameH, dirPointR,
                                 0.4);
                 gs.setBoundsForGoal(i*frameW, 0, (i+1)*frameW, frameH);
                 gs.setBasePoint((i+0.5)*frameW, frameH);
@@ -221,25 +223,13 @@
             
             draw();
             
-            /*
-            im.onmousedown = function(e) {
-                frameW = im.width/frameCount;
-                frameH = im.height;
-                madeOffs.push({pos: {x: e.pageX - im.offsetLeft - (madeOffs.length)*frameW - frameW/2,
-                                     y: e.pageY - im.offsetTop - frameH},
-                              angle: 0.2,
-                              spread: 0.4
-                              });
-                console.log("madeOffs: "+JSON.stringify(madeOffs));
-            };
-            */
+            initTest();
             
             /*
+            
             canvas.onkeydown = function(e) {
                 console.log(e.keyCode);
-                if (e.keyCode===70) toggleFlip();
-                if (e.keyCode===39) swapFrames(1);
-                if (e.keyCode===37) swapFrames(-1);
+                
                 e.preventDefault();
             }
             */
@@ -254,13 +244,99 @@
             
         }
         
+        function getGoalDatas() {
+            return goalSetters.map(gs=>gs.getGoalData(4));
+        }
         
         function printGoalDatas() {
-            document.getElementById("goalDataArea").textContent = JSON.stringify(goalSetters.map(gs=>gs.getGoalData(4)));
+            document.getElementById("goalDataArea").textContent = JSON.stringify(getGoalDatas());
         }
         
     </script>
   
+    
+    
+    
+    <script>
+        var W = 800;
+        var H = 400;
+        var testTarget;
+        
+        var flipBullet = false;
+        var testRunning = false;
+        function initTest() {
+            imageManager.init();
+            soundManager.init();
+            soundManager.setSoundOn(false);
+            
+            
+            testTarget = new Target();
+
+            var testCanvas = document.createElement("canvas");
+            var testCtx = testCanvas.getContext("2d");
+            testCanvas.width = W;
+            testCanvas.height = H;
+
+            document.body.appendChild(testCanvas);
+
+            testTarget.moveTo(W/2, H-30);
+            testTarget.init();
+            testTarget.animation = new BasedAnimation(imageManager.walkSheet, 4);
+            testTarget.timeForHitTween = 0;
+            var testLastT = Date.now();
+            var testTick = function() {
+
+                let tempT = Date.now();
+                let dT = tempT - testLastT;
+                testLastT = tempT;
+                
+                let dTSec = dT/1000;
+                if (testRunning){
+                    testCtx.clearRect(0, 0, testCanvas.width, testCanvas.height);
+
+                    testTarget.update(dTSec);
+                    testTarget.timeForHitTween += dTSec;
+                    if (testTarget.bulletHeld) {
+                        //debugger;
+                        testTarget.updateHitPos();
+                        testTarget.moveBulletHeldToTime(testTarget.timeForHitTween);
+                    }
+
+                    let tempBull = testTarget.bulletHeld;
+                    testTarget.bulletHeld = null;
+                    testTarget.draw(testCtx);
+                    testTarget.bulletHeld = tempBull;
+
+                    if (tempBull) {
+                        tempBull.draw(testCtx, flipBullet);
+                    }
+                }
+
+                window.requestAnimationFrame(testTick);
+            };
+
+            window.requestAnimationFrame(testTick);
+
+        }
+        
+        
+        function setAnimation() {
+            var sheet = new BasedSpriteSheet(sheetFileName, frameCount, getGoalDatas());
+            var speed = +document.getElementById("speedInput").value;
+            
+            testTarget.animation = new BasedAnimation(sheet, frameCount/speed);
+            
+            document.getElementById("animationInfo").textContent = "totalTime for sheet: "+(frameCount/speed);
+        }
+        
+        var bulletInd = -1;
+        function setBullet() {
+            bulletInd += 1;
+            bulletInd %= Bullet.ALL_TYPES_ARR.length;
+            testTarget.bulletHeld = new Bullet(Bullet.ALL_TYPES_ARR[bulletInd]);
+        }
+        
+    </script>
     
     
     

@@ -1,5 +1,8 @@
 /* some of code from: https://burakkanber.com/blog/modeling-physics-javascript-gravity-and-drag/ */
 
+//online at minkkilaukku.github.io
+
+
 var W = 800;
 var H = 600;
 var FPS_DRAW = 60;
@@ -25,11 +28,8 @@ var PART_ON_GROUND_GATHER_TIME = 1.2; //time it takes, in seconds
 var MAX_TIME_PART_ON_GROUND = 45; //time in seconds until ungathered cum will be removed
 
 var MAX_TIME_MONEY_ON_GROUND = 60; //time in seconds until ungathered money will be removed
-
-var Cd = 0.47;  // Dimensionless
-var rho = 0.72; // kg / m^3
-
-var gravity = {x: 0, y: 9.81};  // m / s^2
+var MAX_TIME_SLIP_ON_GROUND = 60; //time in seconds until ungathered money will be removed
+var TIME_KEEP_USED_SLIP = 3;
 
 var splashScreen;
 var canvas;
@@ -43,6 +43,8 @@ var bulletToShoot = new Bullet();
 var bulletTypeInd = 0;
 var bulletsInAir = [];
 var moneyOnGround = [];
+var slipBulletsOnGround = [];
+var usedSlipBullets = [];
 var target = new Target();
 var energyMeter = new EnergyMeter();
 energyMeter.setPosition(W-50, 20);
@@ -57,11 +59,24 @@ target.setCumMeter(cumMeter);
 var cumOnGround = [];
 
 target.setCumHandler(function(shot) {
-    //console.log("Shot ", shot, "gotten from target");
-    for (let p of shot.parts) {
+    //don't need that many gatherable particles, increase the value of one instead
+    var valForP = 1;
+    var pushEveryIth = 1;
+    var maxToHave = 8;
+    let n = shot.parts.length;
+    if (n >= maxToHave) {
+        pushEveryIth = Math.max(1, Math.floor(n/maxToHave));
+        valForP = pushEveryIth;
+    }
+    for (let i=0; i<shot.parts.length; i+=pushEveryIth){
+        let p = shot.parts[i];
+        p.value = valForP;
         p.beenOnGround = 0;
         cumOnGround.push(p);
     }
+    
+    //console.log("There were "+n+" particles in the shot");
+    //console.log("Added every "+pushEveryIth+" one with the value "+valForP);
 });
 
 var gatheredCumParts = []; //where they are when moving towards the target and thus getting gathered
@@ -293,7 +308,7 @@ function updateGatheredCumParts(dT) {
         let p=gatheredCumParts[i];
         if (p.finishedGathering) {
             delete gatheredCumParts[i];
-            gatheredCum += 1;
+            gatheredCum += p.value || 1;
             hadDeletes = true;
         }
     }
@@ -361,6 +376,35 @@ function drawGatheredCumParts() {
 
 
 
+function updateUsedSlipBullets(dT) {
+    let hadUsedSlipBulletsDeletes = false;
+    for (let i=usedSlipBullets.length-1; i>=0; i--) {
+        let s = usedSlipBullets[i];
+        s.update(dT);
+        s.timeSinceUse += dT;
+        if (s.timeSinceUse > TIME_KEEP_USED_SLIP) {
+            delete usedSlipBullets[i];
+            hadUsedSlipBulletsDeletes = true;
+        }
+    }
+    if (hadUsedSlipBulletsDeletes) {
+        usedSlipBullets = usedSlipBullets.filter(x=>x);
+    }
+}
+
+function drawUsedSlipBullets() {
+    var startAlphaTime = TIME_KEEP_USED_SLIP-1;
+    var factForAlpha = 1/(TIME_KEEP_USED_SLIP - startAlphaTime);
+    for (let s of usedSlipBullets) {
+        if (s.timeSinceUse >= startAlphaTime) {
+            ctx.globalAlpha = (TIME_KEEP_USED_SLIP - s.timeSinceUse) * factForAlpha;
+        }
+        s.draw(ctx);
+        ctx.globalAlpha = 1;
+    }
+}
+
+
 function gameTick() {
     
     let tempT = Date.now();
@@ -397,17 +441,18 @@ function update(dT) {
     
     
     let hadMoneyDeletes = false;
+    let targetPickedUp = false;
     for (let i=moneyOnGround.length-1; i>=0; i--) {
         let m = moneyOnGround[i];
         m.update(dT);
-        if (target.willPickUp(m)) {
+        if (!targetPickedUp && target.willPickUp(m)) {
             target.pickUp(m, function(retD) {
                 if (!retD.pickedUp) {
                     moneyOnGround.push(retD.toReturn);
                 }
             });
             moneyOnGround.splice(i, 1);
-            break;
+            targetPickedUp = true;
         }
         if (m.beenOnGround > MAX_TIME_MONEY_ON_GROUND) {
             delete moneyOnGround[i];
@@ -417,6 +462,32 @@ function update(dT) {
     if (hadMoneyDeletes) {
         moneyOnGround = moneyOnGround.filter(x=>x);
     }
+    
+    
+    let hadSlipBulletDeletes = false;
+    let targetSlipped = false;
+    for (let i=slipBulletsOnGround.length-1; i>=0; i--) {
+        let s = slipBulletsOnGround[i];
+        s.update(dT);
+        if (!targetSlipped && target.willSlip(s)) {
+            target.slip(s);
+            targetSlipped = true;
+            usedSlipBullets.push(s);
+            s.timeSinceUse = 0;
+            slipBulletsOnGround.splice(i, 1);
+        }
+        if (s.beenOnGround > MAX_TIME_SLIP_ON_GROUND) {
+            delete slipBulletsOnGround[i];
+            hadSlipBulletDeletes = true;
+        }
+    }
+    if (hadSlipBulletDeletes) {
+        slipBulletsOnGround = slipBulletsOnGround.filter(x=>x);
+    }
+    
+    
+    updateUsedSlipBullets(dT);
+    
     
     for (let b of bulletsInAir) {
         b.update(dT);
@@ -433,7 +504,9 @@ function update(dT) {
         if ( !(b.position.y > H + 100 || b.position.x > W+300 || b.takenByTarget) ) {
             if (b instanceof MoneyBullet && b.onGround) {
                 moneyOnGround.push(b);
-            } else {
+            } else if (b instanceof SlipBullet && b.onGround) {
+                slipBulletsOnGround.push(b);
+            } else{
                 bulletsToKeep.push(b);
             }
         }
@@ -458,6 +531,8 @@ function draw() {
     if (bulletToShoot) bulletToShoot.draw(ctx);
     target.draw(ctx);
     moneyOnGround.forEach(m=>m.draw(ctx));
+    slipBulletsOnGround.forEach(s=>s.draw(ctx));
+    drawUsedSlipBullets();
     
     drawCumPartsOnGround();
     

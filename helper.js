@@ -1,3 +1,10 @@
+
+//physics variables
+var Cd = 0.47;  // Dimensionless
+var rho = 0.72; // kg / m^3
+var gravity = {x: 0, y: 9.81};  // m / s^2
+
+
 const TWO_PI = 2*Math.PI;
 
 var randInt = function(a, b) {return a+Math.floor(Math.random()*(b-a+1));};
@@ -39,6 +46,11 @@ const calcAngle = function(x, y) {
 /** The angle reflected over the y-axis */
 const flipAngle = function(ang) {
     return Math.PI - ang;
+};
+
+/** The angle reflected over the y-axis */
+const flipAngleBothAxis = function(ang) {
+    return ang-Math.PI;
 };
 
 /**

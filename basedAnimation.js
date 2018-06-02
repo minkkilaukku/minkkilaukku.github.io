@@ -45,16 +45,25 @@ BasedAnimation.prototype.getCumGoalData = function() {
 };
 
 /** TODO Path to use for the held bullet clipping when drawing it hitting */
-BasedAnimation.prototype.getClipPath = function(x, y, flip) {
+BasedAnimation.prototype.getClipPath = function(x, y, flip, chooseNonUsualSide) {
+    
+    
+    var start = "M "+x+" "+y +" ";
+    
+    var toRight = flip;
+    if (chooseNonUsualSide) {
+        toRight = !flip;
+    }
+    
+    var end = toRight ? (" L "+x+" 0 L "+W+" 0 L "+W+" "+H+" L "+x+" "+H)
+                        : (" L "+x+" 0 L 0 0 L 0 "+H+" L "+x+" "+H);
     
     if (flip) {
         if (!this.spriteSheet.clipPathFlippedDatas) return null;
-        return new Path2D("M "+x+" "+y +" " + this.spriteSheet.clipPathFlippedDatas[this.currentFrameInd] +
-        " L "+x+" 0 L "+W+" 0 L "+W+" "+H+" L "+x+" "+H);
+        return new Path2D( start + this.spriteSheet.clipPathFlippedDatas[this.currentFrameInd] + end);
     } else {
         if (!this.spriteSheet.clipPathDatas) return null;
-        return  new Path2D( "M "+x+" "+y+" " + this.spriteSheet.clipPathDatas[this.currentFrameInd] +
-                " L "+x+" 0 L 0 0 L 0 "+H+" L "+x+" "+H);
+        return  new Path2D( start + this.spriteSheet.clipPathDatas[this.currentFrameInd] + end);
     }
 };
 

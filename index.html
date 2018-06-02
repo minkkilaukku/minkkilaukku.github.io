@@ -19,6 +19,7 @@
     <script src="sling.js"></script>
     <script src="bullet.js"></script>
     <script src="moneyBullet.js"></script>
+    <script src="slipBullet.js"></script>
     <script src="goal.js"></script>
     <script src="shot.js"></script>
     <script src="target.js"></script>
@@ -33,8 +34,8 @@
     
     <div id="splashScreen">
     
-        <img src="pics/logo.png" ondragstart="return false;" ondrop="return false;">
-        <p id="splashName" ondragstart="return false;" ondrop="return false;">Bungry Arse</p>
+        <img src="pics/logoReal.png" ondragstart="return false;" ondrop="return false;">
+        <!--p id="splashName" ondragstart="return false;" ondrop="return false;">Bungry Arse</p-->
         <div id="splashLoadBar">
             loading...
             <span id="splashLoadBarBorder"></span>
@@ -57,7 +58,7 @@
         Canvas not supported.
     </canvas>
     
-        
+        <!-- set boughts for true for debugging -->
     <div id="inventory">
         
         <div class="cumAmountItem"> <img src="pics/bullets/cumSmall.png"> <p id="cumAmount">0</p> </div>
@@ -66,26 +67,33 @@
             <img src="pics/bullets/bulletLarge.png" > <p>Dildo</p>
         </div>
         
-        <div class="inventoryItem" bought="false" price="200" onmousedown="inventoryItemClicked(1);" ondragstart="return false;" ondrop="return false;">
+        <div class="inventoryItem" bought="true" price="200" onmousedown="inventoryItemClicked(1);" ondragstart="return false;" ondrop="return false;">
             <img src="pics/bullets/plugBullet.png"> <p>Plug</p>
             <div class="itemHider"> 200 </div>
         </div>
         
-        <div class="inventoryItem" bought="false" price="900" onmousedown="inventoryItemClicked(2);" ondragstart="return false;" ondrop="return false;">
+        <div class="inventoryItem" bought="true" price="900" onmousedown="inventoryItemClicked(2);" ondragstart="return false;" ondrop="return false;">
             <img src="pics/bullets/jellyBulletLarge.png"> <p>Jelly</p>
             <div class="itemHider"> 900 </div>
         </div>
         
-        <div class="inventoryItem" bought="false" price="1500" onmousedown="inventoryItemClicked(3);" ondragstart="return false;" ondrop="return false;">
+        <div class="inventoryItem" bought="true" price="1500" onmousedown="inventoryItemClicked(3);" ondragstart="return false;" ondrop="return false;">
             <img src="pics/bullets/buzzBulletLarge.png"> <p>Buzz</p>
             <div class="itemHider"> 15000 </div>
         </div>
         
-        <div class="inventoryItem" bought="false" price="100" onmousedown="inventoryItemClicked(4);" ondragstart="return false;" ondrop="return false;">
+        <div class="inventoryItem" bought="true" price="100" onmousedown="inventoryItemClicked(4);" ondragstart="return false;" ondrop="return false;">
             <img src="pics/bullets/money.png"> <p>Money</p>
             <div class="itemHider"> 100 </div>
         </div>
+        
+        <div class="inventoryItem" bought="true" price="400" onmousedown="inventoryItemClicked(5);" ondragstart="return false;" ondrop="return false;">
+            <img src="pics/bullets/bananaLarge.png"> <p>Banana</p>
+            <div class="itemHider"> 400 </div>
+        </div>
     </div>
+        
+        <button id="pauseButton" paused="false" onclick="paused=!paused; this.setAttribute('paused', paused);"></button>
         
         <button id="muteButton" sound="on" onclick="toggleMute()"></button>
         

@@ -131,12 +131,19 @@ Bullet.TYPES = {
     MONEY: {
         getImage: _=>imageManager.moneyImage,
         name: "money"
-    }
+    },
+    
+    SLIP: {
+        getImage: _=>imageManager.bananaImage,
+        name: "slip"
+    },
+    
+    
 };
 
 Bullet.ALL_TYPES_ARR = [Bullet.TYPES.DEFAULT, Bullet.TYPES.PLUG,
                         Bullet.TYPES.JELLY, Bullet.TYPES.BUZZ,
-                       Bullet.TYPES.MONEY];
+                       Bullet.TYPES.MONEY, Bullet.TYPES.SLIP];
 
 Bullet.typeForInd = function(ind) {
     return Bullet.ALL_TYPES_ARR[ind];
@@ -166,7 +173,7 @@ Bullet.prototype.getWidth = function() {
 
 
 Bullet.prototype.canHit = function() {
-    return this.type!==Bullet.TYPES.MONEY;
+    return this.type!==Bullet.TYPES.MONEY && this.type!==Bullet.TYPES.SLIP;
 };
 
 
@@ -230,6 +237,8 @@ Bullet.prototype.draw = function(ctx, flipped) {
 function makeBullet(type) {
     if (type===Bullet.TYPES.MONEY) {
         return new MoneyBullet(type);
+    } else if (type===Bullet.TYPES.SLIP) {
+        return new SlipBullet(type);
     } else {
         return new Bullet(type);
     }

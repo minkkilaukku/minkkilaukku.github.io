@@ -16,8 +16,8 @@ var BasedImage = function(fileName, offX, offY) {
 BasedImage.prototype.draw = function(ctx, x, y, rot, flipped=false) {
     ctx.save();
     ctx.translate(x, y);
-    if (flipped) ctx.scale(-1, 1);
     ctx.rotate(rot);
+    if (flipped) ctx.scale(-1, 1);
     ctx.drawImage(this.image, -this.offX, -this.offY);
     ctx.restore();
     

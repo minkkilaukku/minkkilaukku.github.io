@@ -33,6 +33,15 @@ var Target = function() {
     this.cumSound = null;
     this.cumSoundNumber = 0;
     this.totalCumSounds = 6;
+    
+    this.timeSinceLastCrouch = 0;
+    this.timeSinceLastSlip = 0;
+    
+    /** percent to slow down walking */
+    this.hindering = 0;
+    /** speed to remove hindering per second */
+    this.usualDiminishHinderingSpeed = 0.7;
+    this.diminishHinderingSpeed = this.usualDiminishHinderingSpeed;
 };
 
 Target.STATES = {
@@ -43,7 +52,11 @@ Target.STATES = {
     CUMMING: 5,
     
     FALLING: 6,
-    FALLEN: 7
+    FALLEN: 7,
+    GETTING_HIT_FALLEN: 8,
+    GETTING_UP: 9,
+    JERKING_FALLEN: 10,
+    CUMMING_FALLEN: 11
 };
 
 
@@ -104,6 +117,34 @@ Target.prototype.pickUp = function(m, callBackForPickUp) {
 };
 
 
+
+/** Will the target slip to a slip bullet */
+Target.prototype.willSlip = function(s) {
+    if (this.state !== Target.STATES.WALKING) {
+        return false;
+    }
+    
+    if (this.timeSinceLastSlip < 2.0) return false;
+    
+    var diffX = this.heading*(s.position.x - this.position.x);
+    if (Math.abs(diffX)<10) {
+        return Math.random()<0.1; //TODO
+    }
+    return false;
+};
+
+Target.prototype.slip = function(s) {
+    s.onGround = false;
+    var back = this.heading<0;
+    var velXForS = this.velocity.x * (back ? 0.05 : 0.1);
+    s.setVelocity(velXForS, -3.7);
+    this.timeSinceLastSlip = 0;
+    this.endWalking();
+    this.setState(Target.STATES.FALLING);
+};
+
+
+
 Target.prototype.canBeHit = function() {
     return this.canHit;
 };
@@ -116,8 +157,19 @@ Target.prototype.bulletHits = function(bullet) {
 Target.prototype.onHit = function(bullet) {
     bullet.isHeld = true;
     this.bulletHeld = bullet;
-    this.setState(Target.STATES.GETTING_HIT);
-    //this.moveTo(this.position.x, this.position.y); //to make the goal go in place //done in update
+    if (this.state === Target.STATES.FALLEN) {
+        this.endFallen();
+        this.setState(Target.STATES.GETTING_HIT_FALLEN);
+        
+    } else if (this.state === Target.STATES.CROUCHING) {
+        this.endCrouch();
+        this.setState(Target.STATES.GETTING_HIT);
+        
+    } else if (this.state === Target.STATES.WALKING) {
+        this.endWalking();
+        this.setState(Target.STATES.GETTING_HIT);
+    }
+    
 };
 
 /** Time in seconds the target gets hit */
@@ -180,7 +232,6 @@ Target.prototype.calculateMoanProb = function(wasCrouched) {
 /** Get random likings of the bullets */
 Target.prototype.getRandLikings = function() {
     
-    
     var getRandLiking = function(midE, spreadE, midC, spreadC, factForCrouch=2) {
         var kForRandNum = 2;
         return {
@@ -190,7 +241,10 @@ Target.prototype.getRandLikings = function() {
             crouch: { energy: randNum(factForCrouch*midE, spreadE, kForRandNum),
                     cum: randNum(factForCrouch*midC, spreadC, kForRandNum) },
             
-            jerk: { energy: 0, cum: randNum(1, 1.2)*randNum(midC, spreadC) }
+            jerk: { energy: 0, cum: randNum(1, 1.2, 1)*randNum(midC, spreadC) },
+            
+            fallen: { energy: randNum(1, 1.5, 1)*factForCrouch*randNum(midE, spreadE),
+                     cum: randNum(1, 1.5, 1)*factForCrouch*randNum(midC, spreadC) }
         };
     };
     
@@ -219,11 +273,15 @@ Target.prototype.getFallenTime = function() {
 Target.prototype.setState = function(state) {
     var wasCrouch = false;
     if (this.state === Target.STATES.CROUCHING) {
-        this.endCrouch();
+        //this.endCrouch(); //already done
         wasCrouch = true;
     }
     
     this.state = state;
+    
+    if (state !== Target.STATES.WALKING) { //allow hindering only for walking
+        this.hindering = 0;
+    }
     
     switch (this.state) {
         case Target.STATES.WALKING:
@@ -233,19 +291,31 @@ Target.prototype.setState = function(state) {
             this.setUpCrouch();
             break;
         case Target.STATES.GETTING_HIT:
-            this.setUpHitting(wasCrouch);
+            this.setUpGettingHitNotFallen(wasCrouch);
             break;
         case Target.STATES.JERKING:
-            this.setUpJerking();
+            this.setUpJerkingNotFallen();
             break;
         case Target.STATES.CUMMING:
-            this.setUpCumming();
+            this.setUpCummingNotFallen();
             break;
         case Target.STATES.FALLING:
             this.setUpFalling();
             break;
         case Target.STATES.FALLEN:
             this.setUpFallen();
+            break;
+        case Target.STATES.GETTING_HIT_FALLEN:
+            this.setUpGettingHitFallen();
+            break;
+        case Target.STATES.GETTING_UP:
+            this.setUpGettingUp();
+            break;
+        case Target.STATES.JERKING_FALLEN:
+            this.setUpJerkingFallen();
+            break;
+        case Target.STATES.CUMMING_FALLEN:
+            this.setUpCummingFallen();
             break;
     }
     
@@ -264,6 +334,9 @@ Target.prototype.setUpWalking = function() {
     }
 };
 
+Target.prototype.endWalking = function() {
+    this.diminishHinderingSpeed = this.usualDiminishHinderingSpeed;
+};
 
 Target.prototype.setUpCrouch = function() {
     this.timeForCrouch = this.getCrouchTime();
@@ -286,11 +359,19 @@ Target.prototype.endCrouch = function() {
     this.timeSinceLastCrouch = 0;
 };
 
-
-Target.prototype.setUpHitting = function(crouched=false) {
-    
+Target.prototype.setUpGettingHitNotFallen = function(crouched=false) {
     var anim = crouched?imageManager.gettingHitCrouchedSheet:imageManager.gettingHitSheet;
     this.animation = new BasedAnimation(anim, 0.5);
+    
+    let bulletName = this.bulletHeld.type.name || "default";
+    let liking = crouched ? this.likings[bulletName].crouch : this.likings[bulletName].stand;
+    this.loseEnergyPerSecond = liking.energy;
+    this.gainCumPerSecond = liking.cum;
+    
+    this.setUpHitting();
+};
+
+Target.prototype.setUpHitting = function() {
     
     this.canHit = false;
     this.setVelocity(0, 0);
@@ -303,11 +384,6 @@ Target.prototype.setUpHitting = function(crouched=false) {
         outPer = 0.1;
     this.hitInPos = {x: this.goal.position.x + ux*bw*inPer, y: this.goal.position.y + uy*bw*inPer};
     this.hitOutPos = {x: this.goal.position.x - ux*bw*outPer, y: this.goal.position.y - uy*bw*outPer};
-    
-    let bulletName = this.bulletHeld.type.name || "default";
-    let liking = crouched ? this.likings[bulletName].crouch : this.likings[bulletName].stand;
-    this.loseEnergyPerSecond = liking.energy;
-    this.gainCumPerSecond = liking.cum;
     
     
     this.timeForSlurpSound = 1; //start from 1s to play sound immediately
@@ -339,9 +415,29 @@ Target.prototype.removeBulletHeld = function() {
 }
 
 
+Target.prototype.setUpJerkingNotFallen = function() {
+    this.animation = new BasedAnimation(imageManager.jerkSheet, 0.7);
+    
+    this.setUpJerking();
+};
+
+Target.prototype.setUpJerkingFallen = function() {
+    var back = this.heading<0;
+    this.animation = new BasedAnimation(back ? imageManager.jerkFallenBackSheet : imageManager.jerkFallenFrontSheet, 0.7);
+    
+    if (back) {
+        //when falling back, goal will be headed to opp dir
+        this.headingForHittingBullet = -this.heading;
+    } else {
+        //works alright when falling front, heading is the same as usual
+        this.headingForHittingBullet = 0;
+    }
+    
+    this.setUpJerking();
+};
 
 Target.prototype.setUpJerking = function() {
-    this.animation = new BasedAnimation(imageManager.jerkSheet, 0.7);
+    
     this.canHit = false;
     this.setVelocity( 0, 0 );
     this.loseEnergyPerSecond = 0;
@@ -360,6 +456,7 @@ Target.prototype.setUpJerking = function() {
 };
 
 Target.prototype.endJerking = function() {
+    
     if (this.jerkSound) {
         this.jerkSound.pause();
         this.jerkSound.currentTime = 0;
@@ -401,8 +498,28 @@ Target.prototype.getShotsData = function() {
     }
 };
 
-Target.prototype.setUpCumming = function() {
+Target.prototype.setUpCummingNotFallen = function() {
     this.animation = new BasedAnimation(imageManager.cumSheet, 0.8);
+    this.setUpCumming();
+};
+
+Target.prototype.setUpCummingFallen = function() {
+    var back = this.heading<0;
+    var sheet = back ? imageManager.cumFallenBackSheet : imageManager.cumFallenFrontSheet;
+    this.animation = new BasedAnimation(sheet, 0.8);
+    this.setUpCumming();
+    
+    if (back) {
+        //when falling back, goal will be headed to opp dir
+        this.headingForHittingBullet = -this.heading;
+    } else {
+        //works alright when falling front, heading is the same as usual
+        this.headingForHittingBullet = 0;
+    }
+};
+
+Target.prototype.setUpCumming = function() {
+    
     this.canHit = false;
     this.setVelocity( 0, 0 );
     this.loseEnergyPerSecond = 0;
@@ -439,6 +556,8 @@ Target.prototype.endCumming = function() {
         this.cumSound.currentTime = 0;
     }
     this.totalShoots = 0; //initialize for next time
+    
+    this.diminishHinderingSpeed = 0.3; //for recovering slower
 };
 
 
@@ -446,17 +565,26 @@ Target.prototype.endCumming = function() {
 Target.prototype.setUpFalling = function() {
     var back = this.heading<0;
     
-    this.timeLeftFalling = 0.7;
+    this.timeLeftFalling = back ? 0.3 : 0.7; //faster, since running left (and falls on back then)
     //TODO fallFrontSheet
-    this.animation = new BasedAnimation(back ? imageManager.fallBackSheet : imageManager.fallBackSheet,
+    this.animation = new BasedAnimation(back ? imageManager.fallBackSheet : imageManager.fallFrontSheet,
                                         this.timeLeftFalling);
     this.animation.repeatMode = "alternate";
     this.animation.setStartFromEnd(); //since the sheet came out that way
     
-    this.canHit = true;
+    this.canHit = false;
     this.setVelocity( 0, 0 );
     this.loseEnergyPerSecond = 0;
     this.gainCumPerSecond = 0;
+    
+    
+    if (back) {
+        //when falling back, goal will be headed to opp dir
+        this.headingForHittingBullet = -this.heading;
+    } else {
+        //works alright when falling front, heading is the same as usual
+        this.headingForHittingBullet = 0;
+    }
 };
 
 Target.prototype.endFalling = function() {
@@ -467,32 +595,83 @@ Target.prototype.setUpFallen = function() {
     var back = this.heading<0;
     
     this.timeLeftFallen = this.getFallenTime();
-    //TODO
-    this.animation = new BasedAnimation(back ? imageManager.walkSheet : imageManager.walkSheet,
-                                        80); //TODO
+    
+    this.animation = new BasedAnimation(back ? imageManager.fallenBackSheet : imageManager.fallenFrontSheet,
+                                        2.5);
     this.canHit = true;
+    this.setVelocity( 0, 0 );
+    this.loseEnergyPerSecond = 0;
+    this.gainCumPerSecond = 0;
+    
+    
+};
+
+Target.prototype.endFallen = function() {
+    this.headingForHittingBullet = 0;
+};
+
+//TODO
+Target.prototype.setUpGettingHitFallen = function() {
+    var back = this.heading<0;
+    
+    var anim = back?imageManager.gettingHitFallenBackSheet : imageManager.gettingHitFallenFrontSheet;
+    this.animation = new BasedAnimation(anim, 0.5);
+    
+    let bulletName = this.bulletHeld.type.name || "default";
+    let hasFallen = typeof this.likings[bulletName].fallen === "number";
+    let liking = hasFallen ? this.likings[bulletName].fallen : this.likings[bulletName].crouch;
+    this.loseEnergyPerSecond = liking.energy;
+    this.gainCumPerSecond = liking.cum;
+    
+    if (back) {
+        //when falling back, goal will be headed to opp dir
+        this.headingForHittingBullet = -this.heading;
+    } else {
+        //works alright when falling front, heading is the same as usual
+        this.headingForHittingBullet = 0;
+    }
+    
+    this.setUpHitting();
+};
+Target.prototype.endGettingHitFallen = function() {
+    this.endGettingHit();
+};
+
+
+Target.prototype.setUpGettingUp = function() {
+    var back = this.heading<0;
+    
+    this.timeLeftGettingUp = 0.9;
+    this.animation = new BasedAnimation(back ? imageManager.getUpBackSheet : imageManager.getUpFrontSheet,
+                                        this.timeLeftGettingUp);
+    this.animation.repeatMode = "alternate";
+    this.animation.setStartFromEnd(); //since the sheet came out that way
+    
+    //disallow, since the heading will be messed up if start hitting and it's too special a case:
+    this.canHit = false;
     this.setVelocity( 0, 0 );
     this.loseEnergyPerSecond = 0;
     this.gainCumPerSecond = 0;
 };
 
-Target.prototype.endFallen = function() {
-    
+Target.prototype.endGettingUp = function() {
+    this.hindering = 0.99; //for accelarating walk slower
 };
 
 
 
 Target.prototype.update = function(dT) {
     
+    var dTForMove = this.hindering ? (1-this.hindering)*dT : dT;
+    this.moveTo(this.position.x + this.velocity.x*dTForMove, this.position.y + this.velocity.y*dTForMove);
+    this.animation.update(dTForMove);
     
-    this.moveTo(this.position.x + this.velocity.x*dT, this.position.y + this.velocity.y*dT);
     var gD = this.animation.getGoalData();
     //this.goal.moveTo(this.position.x+gD.pos.x, this.position.y+gD.pos.y); //goal moved as target is moved
     this.goal.setAngle(this.heading<0 ? flipAngle(gD.angle) : gD.angle );
     this.goal.setSpread(gD.spread);
     this.goal.update(dT);
     
-    this.animation.update(dT);
     
     switch (this.state) {
         case Target.STATES.WALKING:
@@ -516,6 +695,18 @@ Target.prototype.update = function(dT) {
         case Target.STATES.FALLEN:
             this.updateFallen(dT);
             break;
+        case Target.STATES.GETTING_HIT_FALLEN:
+            this.updateGettingHitFallen(dT);
+            break;
+        case Target.STATES.GETTING_UP:
+            this.updateGettingUp(dT);
+            break;
+         case Target.STATES.JERKING_FALLEN:
+            this.updateJerking(dT, Target.STATES.CUMMING_FALLEN);
+            break;
+        case Target.STATES.CUMMING_FALLEN:
+            this.updateCumming(dT, Target.STATES.GETTING_UP);
+            break;
     }
     
     for (let s of this. shots) {
@@ -532,9 +723,16 @@ Target.prototype.updateWalk = function(dT) {
     
     
     //soundManager.breath.play(); //TODO
+    if (this.hindering) {
+        this.hindering -= this.diminishHinderingSpeed*dT;
+        if (this.hindering < 0) {
+            this.hindering = 0;
+        }
+    }
+    var dTForMove = this.hindering ? (1-this.hindering)*dT : dT;
     
     if (this.heading<0) { //correct animation for different walk speed left
-        let corrDT = (TARGET_SPEED_LEFT-TARGET_SPEED_RIGHT)*dT;
+        let corrDT = (TARGET_SPEED_LEFT-TARGET_SPEED_RIGHT)*0.05*dTForMove; //too fast, so slow down
         this.animation.update(corrDT);
     }
     
@@ -548,6 +746,7 @@ Target.prototype.updateWalk = function(dT) {
     }
     
     this.timeSinceLastCrouch += dT;
+    this.timeSinceLastSlip += dT;
     
 };
 
@@ -573,20 +772,34 @@ Target.prototype.updateCrouch = function(dT) {
  * Note: hit positions and goal must be set properly before calling this
 */
 Target.prototype.moveBulletHeldToTime = function(time) {
-    var flip = this.heading<0;
-    this.bulletHeld.rotation = this.goal.angle;
+    var flipBull = this.headingForHittingBullet ? this.headingForHittingBullet<0 : this.heading<0;
+    this.bulletHeld.rotation = flipBull ? flipAngleBothAxis(this.goal.angle) : this.goal.angle;
+    //it seems to be needed to flip also in y-axis, probably because flipping changes the rotation
+    
     this.bulletHeld.moveTo( hitTween(this.hitOutPos.x, this.hitInPos.x, time),
                             hitTween(this.hitOutPos.y, this.hitInPos.y, time) );
     
+    
     if (this.bulletHeld.type.tween) {
-        let xFlipCoeff = flip ? -1 : 1;
+        let xFlipCoeff = flipBull ? -1 : 1;
         var dAng = this.bulletHeld.type.tween.dAngTween(time);
-        //FIXME: I won't! This is totally arbitrary and seems to be just little off like this so let it be
-        this.bulletHeld.rotation += flip ? flipAngle(dAng) : dAng;
-        let dXfromTween = this.bulletHeld.type.tween.dXTween(time);
+        //FIXME:
+        //problem was here, don't flip the dAng, but change its sign
+        this.bulletHeld.rotation += flipBull ? -dAng : dAng;
+        let dXFromTween = xFlipCoeff * this.bulletHeld.type.tween.dXTween(time);
         let dYFromTween = this.bulletHeld.type.tween.dYTween(time);
-        this.bulletHeld.moveTo( this.bulletHeld.position.x + xFlipCoeff*dXfromTween,
-                                this.bulletHeld.position.y + dYFromTween );
+        var cosAng = Math.cos(this.bulletHeld.rotation);
+        var sinAng = Math.sin(this.bulletHeld.rotation);
+        var addX = cosAng*dXFromTween - sinAng*dYFromTween; //maybe works in all cases?
+        var addY = sinAng*dXFromTween + cosAng*dYFromTween;
+        
+        //TODO: debugging
+        this.bulletTweenAddX = addX;
+        this.bulletTweenAddY = addY;
+        //
+        
+        this.bulletHeld.moveTo( this.bulletHeld.position.x + addX,
+                                this.bulletHeld.position.y + addY );
     }
     
     if (this.timeForSlurpSound >= 1) {
@@ -625,6 +838,7 @@ Target.prototype.updateMoanSound = function(dT) {
 };
 
 Target.prototype.updateGettingHit = function(dT) {
+    
     this.updateHitPos();
     this.moveBulletHeldToTime(this.timeForHitTween);
     
@@ -668,7 +882,7 @@ Target.prototype.updateHitPos = function() {
 };
 
 
-Target.prototype.updateJerking = function(dT) {
+Target.prototype.updateJerking = function(dT, stateAfter=Target.STATES.CUMMING) {
     
     this.updateMoanSound(dT);
     
@@ -693,15 +907,13 @@ Target.prototype.updateJerking = function(dT) {
     if (this.timeLeftJerking<=0) {
         this.timeLeftJerking = 0;
         this.endJerking();
-        this.setState(Target.STATES.CUMMING);
+        this.setState(stateAfter);
     }
-    
-    
     
 };
 
 
-Target.prototype.updateCumming = function(dT) {
+Target.prototype.updateCumming = function(dT, stateAfter=Target.STATES.WALKING) {
     
     if (this.bulletHeld) {
         this.updateHitPos();
@@ -744,6 +956,17 @@ Target.prototype.updateCumming = function(dT) {
         }
     }
     
+    //correct the waiting shot particles' position (could have moved while waiting to be shot)
+    if (this.shots.length>0) {
+        var cumGD = this.animation.getCumGoalData();
+        for (let p of this.shots[this.shots.length-1].parts) {
+            if (!p.visible) {
+                p.x = this.position.x + (this.heading<0 ? -cumGD.pos.x : cumGD.pos.x);
+                p.y = this.position.y + cumGD.pos.y;
+            }
+        }
+    }
+    
     this.timeShot += dT;
     this.timeLeftShooting -= dT;
     
@@ -759,7 +982,7 @@ Target.prototype.updateCumming = function(dT) {
     if (this.timeLeftShooting<=0) {
         this.timeLeftShooting = 0;
         this.endCumming();
-        this.setState(Target.STATES.WALKING);
+        this.setState(stateAfter);
     }
 };
 
@@ -780,7 +1003,48 @@ Target.prototype.updateFallen = function(dT) {
     if (this.timeLeftFallen<=0) {
         this.timeLeftFallen = 0;
         this.endFallen();
-        //TODO this.setState(Target.STATES.GETTING_UP);
+        this.setState(Target.STATES.GETTING_UP);
+    }
+};
+
+
+Target.prototype.updateGettingHitFallen = function(dT) {
+    this.updateHitPos();
+    this.moveBulletHeldToTime(this.timeForHitTween);
+    
+    
+    this.updateMoanSound();
+    
+    this.timeLeftHitting -= dT;
+    this.timeForHitTween += this.getHittingSpeed()*dT;
+    if (this.timeLeftHitting<=0) {
+        this.timeLeftHitting=0;
+        this.removeBulletHeld();
+        this.endGettingHit();
+        this.setState(Target.STATES.GETTING_UP);
+        
+    }
+    
+    if (this.energy<=0) { // can only start jerking from hitting, need otherwise???
+        if (!this.bulletHeld.type.keepStuck) {
+            this.removeBulletHeld();
+        } else {
+            this.moveBulletHeldToFullyIn();
+        }
+        this.endGettingHit();
+        this.setState(Target.STATES.JERKING_FALLEN);
+    }
+    
+    this.timeForSlurpSound += dT;
+};
+
+Target.prototype.updateGettingUp = function(dT) {
+    this.timeLeftGettingUp -= dT;
+    
+    if (this.timeLeftGettingUp<=0) {
+        this.timeLeftGettingUp = 0;
+        this.endGettingUp();
+        this.setState(Target.STATES.WALKING);
     }
 };
 
@@ -871,19 +1135,68 @@ Target.prototype.draw = function(ctx) {
         ctx.clip();
         */
         //TODO making new path every update, can we store it? //TODO
-        var clipPath = this.animation.getClipPath(this.position.x, this.position.y, flip);
+        
+        var flipBull = this.headingForHittingBullet ? this.headingForHittingBullet<0 : flip;
+        var unusualSide = this.headingForHittingBullet && flipBull!==flip;
+        //special cases, since turned out messy
+        if (this.state === Target.STATES.JERKING_FALLEN && flip) {
+            unusualSide = true;
+        }
+        var clipPath = this.animation.getClipPath(this.position.x, this.position.y, flip, unusualSide);
         if (clipPath) {
             ctx.fillStyle = "rgba(0, 200, 200, 0.6)";
-            //ctx.fill(clipPath);
+            //ctx.fill(clipPath); //for debugging
             ctx.clip(clipPath);
         }
-        this.bulletHeld.draw(ctx, flip);
+        this.bulletHeld.draw(ctx, flipBull);
         ctx.restore();
     }
     
+    
+    //----debugging stuff---------------
     ctx.globalAlpha = 0.3;
-    //this.goal.draw(ctx);
+    this.goal.draw(ctx);
+    
+    
+    ctx.fillStyle = "#909";
+    ctx.beginPath();
+    ctx.arc(this.hitInPos.x, this.hitInPos.y, 5, 0, TWO_PI);
+    ctx.fill();
+    ctx.fillStyle = "#abc";
+    ctx.beginPath();
+    ctx.arc(this.hitOutPos.x, this.hitOutPos.y, 5, 0, TWO_PI);
+    ctx.fill();
+    
+    if (this.bulletHeld) {
+        ctx.globalAlpha = 0.8;
+        ctx.fillStyle = "#222";
+        ctx.strokeStyle = "#f00";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(this.bulletHeld.position.x, this.bulletHeld.position.y, 8, 0, TWO_PI);
+        ctx.fill();
+        
+        ctx.beginPath();
+        ctx.moveTo(this.bulletHeld.position.x, this.bulletHeld.position.y);
+        var lineEndX = this.bulletHeld.position.x + 70*Math.cos(this.bulletHeld.rotation);
+        var lineEndY = this.bulletHeld.position.y + 70*Math.sin(this.bulletHeld.rotation);
+        ctx.lineTo(lineEndX, lineEndY);
+        ctx.stroke();
+        
+        
+        ctx.globalAlpha = 0.95;
+        ctx.font = "16px Verdana";
+        ctx.fillStyle = "green";
+        ctx.fillText("Flipped: "+flipBull, 200, 150);
+        ctx.fillText("Rotation: "+this.bulletHeld.rotation, 200, 200);
+        
+        ctx.fillText("Add x from tween: "+this.bulletTweenAddX, 200, 250);
+        ctx.fillText("Add y from tween: "+this.bulletTweenAddY, 200, 270);
+        
+    }
+    
     ctx.globalAlpha = 1;
+    //----------------------------------
     
     
     if (this.moneyToPickUp) {

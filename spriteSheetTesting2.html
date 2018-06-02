@@ -16,17 +16,22 @@
 <body>
     
     
-    <img id="sheet" src="pics/cumAnim.png" style="background: rgba(0,0,0,0.7);" >
+    <img id="sheet" src="pics/anims/cummingFallenFrontAnim.png" style="display: none; background: rgba(0,0,0,0.7);" >
     </img>
     
     <canvas id="testCanvas" width="800" height="600" style="background: cyan; display:block;" tabindex="1"></canvas>
-    <button onclick="clearCanvas();">Clear</button>
+    
+    <br>
+    <button onclick="printClipPaths();">Print clip paths</button>
+    <label>Draw points <input type=checkbox oninput="drawPathPoints = this.checked; draw();" checked> </label>
+    <p id ="clipPathsArea"></p>
     
     <script>
         
-        function clearCanvas() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-        }
+        
+        
+        var frameCount = 4;
+        
         
         var mouse = {x: 0, y: 0};
         var getMousePosition = function(e) {
@@ -36,16 +41,193 @@
         };
         
         var im;
-        var frameCount = 6;
-        var currFrame = 0;
         var canvas, ctx;
+        
+        
+        var ClipSetter = function() {
+            this.basePoint = {x: 0, y:0};
+            this.pointR = 6;
+            this.points = [];
+        };
+        
+        ClipSetter.prototype.setBasePoint = function(x, y) {
+            this.basePoint.x = x;
+            this.basePoint.y = y;
+        };
+        
+        ClipSetter.prototype.addPoint = function(x, y) {
+            this.points.push({x: x, y: y});
+        };
+        
+        ClipSetter.prototype.removePoint = function(p) {
+            var ind = this.points.indexOf(p);
+            if (ind>-1) this.points.splice(ind, 1);
+        };
+        
+        ClipSetter.prototype.getPointOn = function(x, y) {
+            for (let p of this.points) {
+                if ( (p.x-x)**2 + (p.y-y)**2 <= this.pointR**2 ) return p;
+            }
+            return null;
+        };
+        
+        ClipSetter.prototype.getClipPath = function() {
+            var pathArr = [];
+            var prevP = this.basePoint;
+            for (let p of this.points) {
+                let dx = p.x-prevP.x;
+                let dy = p.y-prevP.y;
+                pathArr.push("l "+dx+" "+dy);
+                prevP = p;
+            }
+            return pathArr.join(" ");
+        };
+        
+        ClipSetter.prototype.update = function() {
+            //nothing?
+        };
+        
+        ClipSetter.prototype.draw = function(ctx, drawPoints=true) {
+            ctx.beginPath();
+            ctx.strokeStyle = "#111";
+            ctx.moveTo(this.basePoint.x, this.basePoint.y);
+            for (let p of this.points) {
+                ctx.lineTo(p.x, p.y);
+            }
+            ctx.stroke();
+            
+            if (drawPoints) {
+                ctx.beginPath();
+                ctx.fillStyle = "rgba(100, 0, 0, 0.6)";
+                ctx.arc(this.basePoint.x, this.basePoint.y, this.pointR, 0, 2*Math.PI);
+                ctx.fill();
+
+                ctx.fillStyle = "rgba(0, 0, 100, 0.6)";
+                for (let p of this.points) {
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, this.pointR, 0, 2*Math.PI);
+                    ctx.fill();
+                }
+            }
+            
+            
+        };
+        
+        
+        
+        var clipSetters = [];
+        var draggedPoint = null;
+        var draggedSetter = null;
+        
+        var selectedPoint = null;
+        var selectedSetter = null;
+        var drawPathPoints = true;
+        /*
         var pathPoints = [];
-        
-        
         var madePath = [];
         
         var allMadePaths = [];
+        */
         
+        var frameW = 0, frameH = 0;
+        window.onload = function () {
+            im = document.getElementById("sheet");
+            frameW = im.width/frameCount;
+            frameH = im.height;
+            canvas = document.getElementById("testCanvas");
+            canvas.width = im.width;
+            canvas.height = im.height;
+            ctx = canvas.getContext("2d");
+            
+            
+            for (let i=0; i<frameCount; i++) {
+                let s = new ClipSetter();
+                s.setBasePoint((i+0.5)*frameW, frameH);
+                clipSetters.push(s);
+            }
+            
+            canvas.onmousemove = function (evt) {
+                getMousePosition(evt);
+                if (draggedPoint) {
+                    draggedPoint.x = mouse.x;
+                    draggedPoint.y = mouse.y;
+                }
+                
+                if (draggedSetter) {
+                    draggedSetter.update();
+                }
+                draw();
+            };
+            
+            canvas.onmousedown = function(evt) {
+                getMousePosition(evt);
+                //console.log("mouse down on "+mouse.x+", "+mouse.y);
+                let toDrag = null;
+                for (let s of clipSetters) {
+                    toDrag = s.getPointOn(mouse.x, mouse.y);
+                    if (toDrag) {
+                        //console.log("got dragged point: ", toDrag);
+                        draggedSetter = s;
+                        selectedPoint = toDrag;
+                        selectedSetter = s;
+                        break;
+                    }
+                }
+                draggedPoint = toDrag;
+                
+                if (!draggedPoint) {
+                    var setterForAdd = clipSetters[Math.floor(mouse.x/frameW)];
+                    setterForAdd.addPoint(mouse.x, mouse.y);
+                    selectedSetter = setterForAdd;
+                    selectedPoint = setterForAdd.points[setterForAdd.points.length-1];
+                }
+                
+                draw();
+            };
+            
+            canvas.onmouseup = function (evt) {
+                draggedPoint = null;
+                draggedSetter = null;
+                draw();
+            };
+            
+            canvas.onkeydown = function(e) {
+                //console.log(e.keyCode);
+                if (e.keyCode===8) {
+                    if (selectedSetter && selectedPoint) {
+                        selectedSetter.removePoint(selectedPoint);
+                    }
+                }
+                
+                e.preventDefault();
+                draw();
+            }
+            
+            draw();
+            
+        };
+        
+        
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(im, 0, 0);
+            clipSetters.forEach(s=>s.draw(ctx, drawPathPoints));
+            
+            if (selectedPoint && drawPathPoints) {
+                ctx.strokeStyle = "rgba(90, 0, 120, 0.8)";
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.arc(selectedPoint.x, selectedPoint.y, 7, 0, 2*Math.PI );
+                ctx.stroke();
+            }
+        }
+        
+        
+        function printClipPaths() {
+            document.getElementById("clipPathsArea").textContent = JSON.stringify(clipSetters.map(s=>s.getClipPath()));
+        }
+        
+        /*
         window.onload = function () {
             im = document.getElementById("sheet");
             canvas = document.getElementById("testCanvas");
@@ -91,13 +273,14 @@
         };
         
         
-        
         function printResult() {
             console.log(JSON.stringify(allMadePaths.map(s=>{
                 let indOfL = s.indexOf("l");
                 return s.substring(indOfL);
             } )));
         }
+        
+        */
         
     </script>
   
