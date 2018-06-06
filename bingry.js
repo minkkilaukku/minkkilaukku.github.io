@@ -1,7 +1,7 @@
 /* some of code from: https://burakkanber.com/blog/modeling-physics-javascript-gravity-and-drag/ */
 
 //online at minkkilaukku.github.io
-
+const SAVE_STORAGE_NAME = "lankki_miukku_bungryArseTallenusData";
 
 var W = 800;
 var H = 600;
@@ -182,7 +182,6 @@ function setBulletType(ind) {
 }
 
 
-
 function updateGatheredCum() {
     document.getElementById("cumAmount").textContent = gatheredCum;
 }
@@ -216,7 +215,6 @@ function updateItems() {
         item.item.setAttribute("canAfford", gatheredCum >= item.price);
         item.item.setAttribute("bought", item.bought);
         
-        //TODO remove the hider if bought
         var hider = item.item.getElementsByClassName("itemHider")[0];
         if (hider) {
             hider.textContent = item.price;
@@ -243,8 +241,36 @@ function buyItem(ind) {
     itemElements[ind].bought = true;
     updateGatheredCum();
     updateItems();
+    
+    saveData();
 }
 
+
+function saveData() {
+    var save = {gatheredCum: gatheredCum,
+               items: []
+               };
+    for (let i=0; i<itemElements.length; i++) {
+        save.items[i] = {};
+        save.items[i].bought = itemElements[i].bought;
+    }
+    localStorage.setItem(SAVE_STORAGE_NAME, JSON.stringify(save));
+}
+
+function getSavedData() {
+    var save = JSON.parse(localStorage.getItem(SAVE_STORAGE_NAME));
+    
+    if (!save) return false;
+    
+    for (let i=0; i<itemElements.length; i++) {
+        itemElements[i].bought = save.items[i].bought;
+    }
+    gatheredCum = save.gatheredCum;
+    updateItems();
+    updateGatheredCum();
+    
+    return true;
+}
 
 
 function mouseOnDisk(x, y, r) {
@@ -314,6 +340,7 @@ function updateGatheredCumParts(dT) {
     }
     if (hadDeletes) {
         gatheredCumParts = gatheredCumParts.filter(x=>x);
+        saveData();
     }
     
     if (hadDeletes) { //did increase the amount
@@ -563,9 +590,6 @@ function toggleMute() {
 };
 
 
-function getStoredData() {
-    //TODO
-}
 
 
 window.onload = function() {
@@ -591,5 +615,7 @@ window.onload = function() {
     });
     
     splashScreen.start();
+    
+    getSavedData();
     
 }

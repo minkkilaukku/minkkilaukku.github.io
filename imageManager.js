@@ -31,11 +31,11 @@ const CROUCH_OFFS = [{"pos":{"x":-42.375,"y":-183},"angle":0.2,"spread":1.1},{"p
 
 
 
-const GET_HIT_CROUCH_OFFS = [{"pos":{"x":-43,"y":-186},"angle":0.2,"spread":0.4},{"pos":{"x":-41,"y":-186},"angle":0.2,"spread":0.4},{"pos":{"x":-39,"y":-185},"angle":0.2,"spread":0.4},{"pos":{"x":-41,"y":-185},"angle":0.2,"spread":0.4}];
+const GET_HIT_CROUCH_OFFS = [{"pos":{"x":-38.375,"y":-178},"angle":0.0156,"spread":1.9628},{"pos":{"x":-38.125,"y":-178},"angle":0.0476,"spread":1.9058},{"pos":{"x":-40.875,"y":-176},"angle":0.0317,"spread":1.9034},{"pos":{"x":-39.625,"y":-178},"angle":0.0308,"spread":2.026}];
       
       //old = [{"pos":{"x":-40,"y":-140},"angle":0.4,"spread":0.4},{"pos":{"x":-41,"y":-136},"angle":0.4,"spread":0.4}];
 
-const GET_HIT_CROUCH_CLIP_PATH_DATAS = ["l -33 -158 l -9 -18 l -4 -5 l 1 -10 l 3 -10 l 5 -7 l 5 -6", "l -35 -163 l -1 -5 l -7 -8 l -3 -8 l 1 -9 l 6 -15 l 8 -7", "l -33 -158 l -2 -8 l -6 -8 l -5 -9 l 1 -9 l 5 -12 l 7 -5", "l -31 -157 l -6 -11 l -4 -7 l -5 -7 l 1 -12 l 8 -11 l 5 -7"];
+const GET_HIT_CROUCH_CLIP_PATH_DATAS = ["l -15.375 -116 l -18 -41 l -6 -8 l -3 -8 l 3 -11 l 2 -4 l 10 -4 l 39 -79","l -1.125 -99 l -21 -31 l -7 -15 l -3 -11 l -4 -6 l -6 -9 l 3 -10 l 2 -7 l 9 -4 l 4 1 l 27 -73","l -1.274993896484375 -99 l -21 -32 l -8 -16 l -3 -8 l -8 -14 l 3 -13 l 9 -10 l 1 -1 l 35 -60","l -8.42498779296875 -107 l -18 -36 l -9 -15 l -7 -13 l 4 -10 l 4 -9 l 6 -4 l 26 -51"];
       
       //old = ["l -49 -113 l 0 -8 l 2 -10 l 4 -8 l 5 -8 l 6 -6 l 7 -7", "l -49 -113 l 0 -8 l 2 -10 l 4 -8 l 5 -8 l 6 -6 l 7 -7"];
 
@@ -154,7 +154,7 @@ imageManager.init = function() {
     imageManager.gettingHitSheet.clipPathDatas = GET_HIT_CLIP_PATH_DATAS;
     imageManager.gettingHitSheet.clipPathFlippedDatas = GET_HIT_CLIP_PATH_FLIP_DATAS;
     
-    imageManager.gettingHitCrouchedSheet = new BasedSpriteSheet("pics/anims/gettingHitCrouchAnim.png", 4, GET_HIT_CROUCH_OFFS);
+    imageManager.gettingHitCrouchedSheet = new BasedSpriteSheet("pics/anims/gettingHitCrouchAnim2.png", 4, GET_HIT_CROUCH_OFFS);
     imageManager.gettingHitCrouchedSheet.clipPathDatas = GET_HIT_CROUCH_CLIP_PATH_DATAS;
     imageManager.gettingHitCrouchedSheet.clipPathFlippedDatas = GET_HIT_CROUCH_CLIP_PATH_FLIP_DATAS;
     

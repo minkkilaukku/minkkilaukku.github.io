@@ -349,6 +349,7 @@ Target.prototype.setUpCrouch = function() {
     this.setVelocity( 0, 0 );
     this.loseEnergyPerSecond = 0;
     this.gainCumPerSecond = 0;
+    this.timeSinceLastCrouch = 0;
 };
 
 Target.prototype.endCrouch = function() {
@@ -761,7 +762,7 @@ Target.prototype.updateCrouch = function(dT) {
     
     if (this.timeSpentCrouch >= this.timeForCrouch) {
         this.timeSpentCrouch = this.timeForCrouch;
-        setTimeout(_=>this.setState(Target.STATES.WALKING), 100);
+        setTimeout(_=>{this.endCrouch(); this.setState(Target.STATES.WALKING);}, 100);
     }
     
 };
@@ -1154,6 +1155,7 @@ Target.prototype.draw = function(ctx) {
     
     
     //----debugging stuff---------------
+    /*
     ctx.globalAlpha = 0.3;
     this.goal.draw(ctx);
     
@@ -1194,6 +1196,7 @@ Target.prototype.draw = function(ctx) {
         ctx.fillText("Add y from tween: "+this.bulletTweenAddY, 200, 270);
         
     }
+    */
     
     ctx.globalAlpha = 1;
     //----------------------------------
