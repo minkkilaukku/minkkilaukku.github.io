@@ -97,3 +97,17 @@
     outline: none;
 }
 
+#visitorCounter {
+    margin-top: 5%;
+    height: 5%;
+    vertical-align: middle;
+    line-height: 25px;
+}
+
+#visitorCounter img{
+    display: block;
+    height: 20px;
+    width: auto;
+    vertical-align: middle;
+}
+
